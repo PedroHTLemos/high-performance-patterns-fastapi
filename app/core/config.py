@@ -1,0 +1,5 @@
+import os
+
+RATE_LIMIT_ALGORITHM = os.getenv("RATE_LIMIT_ALGORITHM", "fixed_window")
+RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "10"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
