@@ -2,7 +2,7 @@ import asyncio
 import json
 import time
 import uuid
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.core.redis_client import redis_client
 from app.core.github_client import fetch_github_user
@@ -16,7 +16,7 @@ LOCK_WAIT_MAX_ATTEMPTS = 30  # 30 * 0.1s = até 3s de espera
 
 
 @router.get("/users/{username}")
-async def get_github_user(username: str):
+async def get_github_user(username: str, request: Request):
     cache_key = f"cache:github:user:{username}"
     lock_key = f"lock:github:user:{username}"
 
@@ -25,6 +25,7 @@ async def get_github_user(username: str):
 
     if cached:
         elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
+        request.state.cache_status = "HIT"
         return {
             "source": "cache",
             "latency_ms": elapsed_ms,
@@ -42,6 +43,7 @@ async def get_github_user(username: str):
             cached = await redis_client.get(cache_key)
             if cached:
                 elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
+                request.state.cache_status = "HIT"
                 return {
                     "source": "cache",
                     "latency_ms": elapsed_ms,
@@ -54,11 +56,13 @@ async def get_github_user(username: str):
     try:
         user_data = await fetch_github_user(username)
         if user_data is None:
+            request.state.cache_status = "MISS"
             raise HTTPException(status_code=404, detail="GitHub user not found")
 
         await redis_client.set(cache_key, json.dumps(user_data), ex=CACHE_TTL_SECONDS)
 
         elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
+        request.state.cache_status = "MISS"
         return {
             "source": "origin",
             "latency_ms": elapsed_ms,
