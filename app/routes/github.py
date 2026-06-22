@@ -37,3 +37,20 @@ async def get_github_user(username: str):
         "latency_ms": elapsed_ms,
         "data": user_data,
     }
+
+@router.delete("/users/{username}/cache")
+async def purge_github_user_cache(username: str):
+    cache_key = f"cache:github:user:{username}"
+
+    deleted = await redis_client.delete(cache_key)
+
+    if deleted == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No cached entry found for user '{username}'",
+        )
+
+    return {
+        "message": f"Cache purged for user '{username}'",
+        "purged": True,
+    }
